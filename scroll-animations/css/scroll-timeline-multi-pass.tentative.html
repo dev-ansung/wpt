@@ -18,10 +18,13 @@
   main {
     height: 0px;
     overflow: hidden;
+    scroll-timeline-attachment: defer;
+    scroll-timeline-name: timeline1, timeline2;
   }
   .scroller {
     height: 100px;
     overflow: scroll;
+    scroll-timeline-attachment: ancestor;
   }
   .scroller > div {
     height: 200px;
@@ -93,7 +96,7 @@
       assert_equals(events1.length, 1);
       assert_equals(events1[0].length, 1);
       assert_equals(events1[0][0].contentBoxSize.length, 1);
-      assert_equals(events1[0][0].contentBoxSize[0].inlineSize, 100);
+      assert_equals(events1[0][0].contentBoxSize[0].inlineSize, 100); // @ getting 1 here!
 
       // ScrollTimelines created during the ResizeObserver should remain
       // inactive during the frame they're created, so the ResizeObserver

@@ -122,7 +122,6 @@
 <template id=multiple_timelines>
   <style>
     #timelines {
-      view-timeline: tv vertical, th horizontal;
       background-color: red;
     }
     #scroller {
@@ -132,6 +131,8 @@
       display: grid;
       grid-template-columns: 50px 50px 50px 50px 50px 50px 50px;
       grid-template-row: 50px 50px 50px 50px 50px 50px 50px;
+      view-timeline-attachment: defer;
+      view-timeline-name: tv, th;
     }
     #scroller > div {
       z-index: -1;
@@ -140,10 +141,16 @@
     }
     #target_v {
       animation: anim 1s linear;
+      view-timeline-attachment: ancestor;
+      view-timeline-name: tv;
+      view-timeline-axis: vertical;
       animation-timeline: tv;
     }
     #target_h {
       animation: anim 1s linear;
+      view-timeline-attachment: ancestor;
+      view-timeline-name: th;
+      view-timeline-axis: horizontal;
       animation-timeline: th;
     }
   </style>
@@ -188,7 +195,7 @@
     assert_equals(getComputedStyle(target_v).zIndex, '-1');
     assert_equals(getComputedStyle(target_h).zIndex, '-1');
     await scrollTop(scroller, 50); // 0% (enter 0%)
-    assert_equals(getComputedStyle(target_v).zIndex, '0');
+    assert_equals(getComputedStyle(target_v).zIndex, '0'); // @@@ expected "0" but got "-1"
     assert_equals(getComputedStyle(target_h).zIndex, '-1');
     await scrollTop(scroller, 125); // 50%
     assert_equals(getComputedStyle(target_v).zIndex, '50');

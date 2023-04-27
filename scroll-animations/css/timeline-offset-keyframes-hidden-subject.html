@@ -28,15 +28,19 @@
     overflow-x: hidden;
     width: 300px;
     height: 200px;
+    view-timeline-attachment: defer;
+    view-timeline-name: t1;
   }
-  #block {
+  #sibling {
     margin-top:  800px;
     margin-left:  10px;
     margin-right:  10px;
     width:  100px;
     height:  50px;
     background-color:  blue;
-    view-timeline:  t1 block;
+    view-timeline-attachment: ancestor;
+    view-timeline-name: t1;
+    view-timeline-axis: block;
   }
   #target {
     margin-bottom: 800px;
@@ -54,7 +58,7 @@
 </style>
 <body>
   <div id="scroller">
-    <div id="block"></div>
+    <div id="sibling"></div>
     <div id="target"></div>
   </div>
 </body>
@@ -87,7 +91,7 @@
       assert_frame_lists_equal(frames, expected_resolved_offsets,
                                'Initial keyframes with active view-timeline');
 
-      block.style.display = 'none';
+      sibling.style.display = 'none';
       // View-timeline becomes invalid. Keyframes with timeline offsets must be
       // ignored.
       frames = anim.effect.getKeyframes();
@@ -107,8 +111,10 @@
       ];
       assert_frame_lists_equal(frames, expected_unresolved_offsets,
                                'Keyframes with invalid view timeline');
+                               // @@@ exp "composite,computedOffset,easing,offset,opacity"
+                               // @@@ got "composite,computedOffset,easing,marginRight,offset,opacity"
 
-      block.style.display = 'block';
+      sibling.style.display = 'block';
       // Ensure that keyframes with timeline-offsets are restored.
       frames = anim.effect.getKeyframes();
 
