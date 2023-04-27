@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/speculation-rules/prerender/resources/utils.js"></script>
+<body>
+<script>
+const params = new URLSearchParams(location.search);
+
+// This test attempts to prerender(speculation-rules triggered) several URLs that differ only in fragments like as follows:
+//   - http://(snip)/fragments.html?q#fragment0
+//   - http://(snip)/fragments.html?q#fragment1
+//   - http://(snip)/fragments.html?q#fragment2
+// After finishing prerendering, it attempts to activate one URL whose index corresponds to `fragmentActivateIdx`.
+const fragmentPrefix = params.get('fragmentPrefix') ?? 'fragment';
+const fragmentNum = parseInt(params.get('fragmentNum')) ?? 3;
+const fragmentActivateIdx = parseInt(params.get('fragmentActivateIdx')) ?? 1;
+
+const fragments = [...Array(fragmentNum)].map((_, idx) => '#' + fragmentPrefix + idx.toString());
+assert_true(0 <= fragmentActivateIdx && fragmentActivateIdx < fragmentNum);
+const fragmentActivate = fragments[fragmentActivateIdx];
+
+// The main test page loads the initiator page, then the initiator page will prerender itself with the `prerendering` parameter.
+const isPrerendering = params.has('prerendering');
+if (!isPrerendering) {
+  // behavior on initiator page, mostly based on `loadInitiatorPage()`.
+
+  assert_true(!document.prerendering);
+
+  const prerenderChannel = new PrerenderChannel('prerender-channel');
+  window.addEventListener('unload', () => {
+    prerenderChannel.close();
+  });
+
+  // start prerendering with fragments.
+  const url = new URL(document.URL);
+  url.searchParams.append('prerendering', '');
+  fragments.forEach(fragment => startPrerendering(url.toString() + fragment));
+
+  // prepare to capture the notifications of finishing prerendering from each prerendered page.
+  const readyToActivates = fragments.map(fragment => {
+    return new Promise((resolve, reject) => {
+      prerenderChannel.addEventListener('message', e => {
+        if (e.data === 'readyToActivate' + fragment) {
+          resolve(e.data);
+        }
+      });
+    });
+  });
+
+  // navigate the prerendered page specified by `fragmentActivate` after all pages are ready to be activated.
+  Promise.all(readyToActivates).then(() => {
+    window.location = url.toString() + fragmentActivate;
+  }).catch(e => {
+    const testChannel = new PrerenderChannel('test-channel');
+    testChannel.postMessage(
+      `Failed to navigate the prerendered page: ${e.toString()}`);
+    testChannel.postMessage('FIN');
+    testChannel.close();
+    window.close();
+  });
+
+} else {
+  // behavior on prerendered page.
+
+  assert_true(document.prerendering);
+  const url = new URL(document.URL);
+
+  // inform the test page that this page is now on prerendering by sending its URL fragment.
+  const testChannel = new PrerenderChannel('test-channel');
+  testChannel.postMessage(`prerendering ${url.hash}`);
+  testChannel.close();
+
+  // notify the initiator page of completing prerendering by sending the identifier.
+  window.addEventListener('load', () => {
+    const prerenderChannel = new PrerenderChannel('prerender-channel');
+    prerenderChannel.postMessage('readyToActivate' + url.hash);
+    prerenderChannel.close();
+  });
+
+  // inform the test page that this page was activated by sending its URL fragment.
+  document.addEventListener('prerenderingchange', () => {
+    const url = new URL(document.URL);
+    const testChannel = new PrerenderChannel('test-channel');
+    testChannel.postMessage(`activated ${url.hash}`);
+    testChannel.postMessage('FIN');
+    testChannel.close();
+    window.close();
+  });
+}
+</script>
+</body>
+</html>

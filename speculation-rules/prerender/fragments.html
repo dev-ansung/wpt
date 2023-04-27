@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<title>Test prerendering with fragments on speculation-rules</title>
+<meta name="timeout" content="long">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/common/utils.js"></script>
+<script src="/speculation-rules/prerender/resources/utils.js"></script>
+<body>
+<script>
+setup(() => assertSpeculationRulesIsSupported());
+
+promise_test(async t => {
+  const uid = token();
+
+  const bc = new PrerenderChannel('test-channel', uid);
+  t.add_cleanup(_ => bc.close());
+
+  const gotMessage = new Promise(resolve => {
+    let messages = [];
+    bc.addEventListener('message', e => {
+      messages.push(e.data);
+      if (e.data === 'FIN') {
+        resolve(messages);
+      }
+    });
+  });
+
+  // This test attempts to prerender(speculation-rules triggered) several URLs that differ only in fragments like as follows:
+  //   - http://(snip)/fragments.html?q#fragment0
+  //   - http://(snip)/fragments.html?q#fragment1
+  //   - http://(snip)/fragments.html?q#fragment2
+  // After finishing prerendering, it tries to activate one specified URL whose index corresponds to `fragmentActivateIdx`.
+  const fragmentPrefix = 'fragment';
+  const fragmentNum = 3;
+  const fragmentActivateIdx = 1;
+
+  const fragments = [...Array(fragmentNum)].map((_, idx) => '#' + fragmentPrefix + idx.toString());
+  assert_true(0 <= fragmentActivateIdx && fragmentActivateIdx < fragmentNum);
+  const fragmentActivate = fragments[fragmentActivateIdx];
+
+  const url = `resources/fragments.html?uid=${uid}&fragmentPrefix=${fragmentPrefix}&fragmentNum=${fragmentNum}&fragmentActivateIdx=${fragmentActivateIdx}`;
+  window.open(url, '_blank', 'noopener');
+
+  const result = await gotMessage;
+
+  assert_true(fragments.every(f => result.includes(`prerendering ${f}`)),
+    'all identical URLs should be prerended individually, even if URLs differ only in fragments');
+
+  assert_true(fragments.every(f => {
+    const hasActivavtedRecord = result.includes(`activated ${f}`);
+    return f === fragmentActivate ? hasActivavtedRecord : !hasActivavtedRecord;
+  }), 'the URL of the activated page should have the same fragments as the original one specified in prerendering has');
+});
+</script>
+</body>
+</head>
+</html>
